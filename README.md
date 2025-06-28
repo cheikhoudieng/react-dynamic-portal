@@ -1,5 +1,7 @@
 # React Dynamic Portal
 
+[![GitHub](https://img.shields.io/badge/GitHub-react--dynamic--portal-blue?style=flat&logo=github)](https://github.com/cheikhoudieng/react-dynamic-portal)
+
 A React library for dynamic component rendering using Redux Toolkit. This library provides a robust and scalable solution for managing and rendering React components dynamically, making it ideal for scenarios like modals, notifications, pop-ups, or any UI element that needs to be injected into the DOM at runtime based on application state.
 
 ## Table of Contents
@@ -12,6 +14,11 @@ A React library for dynamic component rendering using Redux Toolkit. This librar
   - [useDynamicComponent Hook](#usedynamiccomponent-hook)
   - [Component Props Injection](#component-props-injection)
   - [Notifications System](#notifications-system)
+  - [Managing Multiple Dynamic Components](#managing-multiple-dynamic-components)
+  - [Customizing Component Styles](#customizing-component-styles)
+  - [Removing a Dynamic Component](#removing-a-dynamic-component)
+- [Error Handling](#error-handling)
+- [Best Practices](#best-practices)
 - [API Reference](#api-reference)
   - [`<DynamicComponentProvider />`](#dynamiccomponentprovider-1)
   - [`useDynamicComponent(componentId: string)`](#usedynamiccomponentcomponentid-string)
@@ -209,168 +216,144 @@ function App() {
 }
 ```
 
-## API Reference
+### Managing Multiple Dynamic Components
 
-### `<DynamicComponentProvider />`
+You can manage multiple dynamic components by defining them in the `components` array of the `DynamicComponentProvider` and interacting with each using its unique `componentId`.
 
-A React Context Provider that manages the lifecycle and rendering of dynamic components.
+```jsx
+// In your main App.js or a parent component
+import React, { useMemo } from 'react';
+import { DynamicComponentProvider, useDynamicComponent } from 'react-dynamic-portal';
+import Modal from './components/Modal';
+import Sidebar from './components/Sidebar'; // Another dynamic component
+import Toast from './components/Toast';     // Yet another dynamic component
 
-#### Props
+function App() {
+  const { activate: activateModal, deactivate: deactivateModal, isActive: isModalActive } = useDynamicComponent('myModal');
+  const { activate: activateSidebar, deactivate: deactivateSidebar, isActive: isSidebarActive } = useDynamicComponent('mySidebar');
+  const { activate: activateToast, deactivate: deactivateToast, isActive: isToastActive } } = useDynamicComponent('myToast');
 
--   `components`: `Array<{ componentId: string; component: ReactElement }>` (required)
-    An array of objects, where each object defines a dynamic component:
-    -   `componentId`: A unique string identifier for the component.
-    -   `component`: The React element to be rendered dynamically.
--   `children`: `ReactNode` (required)
-    The child elements that will be rendered normally within the provider's scope.
--   `fallback`: `ReactNode` (optional)
-    A fallback UI to display while dynamic components are being loaded (e.g., during code splitting with `React.lazy`). Defaults to `null`.
+  const dynamicComponents = useMemo(
+    () => [
+      {
+        componentId: 'myModal',
+        component: <Modal title='Main Modal' message='This is the main modal.' />,
+      },
+      {
+        componentId: 'mySidebar',
+        component: <Sidebar title='App Sidebar' />,
+      },
+      {
+        componentId: 'myToast',
+        component: <Toast message='Operation successful!' />,
+      },
+    ],
+    []
+  );
 
-### `useDynamicComponent(componentId: string)`
+  return (
+    <DynamicComponentProvider components={dynamicComponents}>
+      {/* ... your application content ... */}
+      <button onClick={() => activateModal()} disabled={isModalActive}>Show Main Modal</button>
+      <button onClick={() => deactivateModal()} disabled={!isModalActive}>Hide Main Modal</button>
 
-A custom React hook to interact with a specific dynamic component.
+      <button onClick={() => activateSidebar()} disabled={isSidebarActive}>Show Sidebar</button>
+      <button onClick={() => deactivateSidebar()} disabled={!isSidebarActive}>Hide Sidebar</button>
 
-#### Parameters
+      <button onClick={() => activateToast({ duration: 3000 })}>Show Toast</button>
+    </DynamicComponentProvider>
+  );
+}
+```
 
--   `componentId`: `string` (required)
-    The unique identifier of the dynamic component you want to control or get information about.
+### Customizing Component Styles
 
-#### Returns
+Styling of your dynamic components is entirely up to you. The `react-dynamic-portal` library only handles the rendering and state management. You can use any CSS-in-JS library, CSS modules, or plain CSS.
 
-An object with the following properties:
+For example, to style a modal, you would define the styles within your `Modal` component:
 
--   `isActive`: `boolean`
-    Indicates whether the component is currently active (rendered) or not.
--   `activate(props?: Record<string, any> | null)`: `function`
-    Activates the component, making it visible. You can optionally pass an object of `props` that will be injected into the dynamic component.
--   `deactivate()`: `function`
-    Deactivates the component, removing it from the DOM.
--   `notify(notificationId: string | number, payload: any)`: `function`
-    Sends a notification to the component's state.
-    -   `notificationId`: A unique identifier for the notification. If a notification with the same ID already exists, its payload will be updated.
-    -   `payload`: Any data associated with the notification.
--   `removeNotification(notificationId: string | number)`: `function`
-    Removes a specific notification from the component's state.
--   `notifications`: `Notification[]`
-    An array of notifications currently associated with the component. Each `Notification` object has an `id` and a `payload`.
+```jsx
+// src/components/Modal.js
+import React from 'react';
 
-### `dynamicComponentReducer`
+const Modal = ({ title, message, close }) => {
+  const modalStyle = {
+    position: 'fixed',
+    top: '50%',
+    left: '50%',
+    transform: 'translate(-50%, -50%)',
+    backgroundColor: 'white',
+    padding: '20px',
+    border: '1px solid #ccc',
+    boxShadow: '0 4px 8px rgba(0, 0, 0, 0.1)',
+    borderRadius: '8px',
+    zIndex: 1000,
+  };
 
-The Redux reducer that manages the state of all dynamic components. It should be added to your Redux store's `reducer` map.
+  const overlayStyle = {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    zIndex: 999,
+  };
 
-### Types
+  return (
+    <div style={overlayStyle}>
+      <div style={modalStyle}>
+        <h2>{title}</h2>
+        <p>{message}</p>
+        <button onClick={close}>Close</button>
+      </div>
+    </div>
+  );
+};
 
-The library exports several TypeScript types for better type safety:
+export default Modal;
+```
 
--   `Notification`: `{ id: string | number; payload: any; }`
-    Represents a notification object.
--   `DynamicComponentState`: `{ id: string; isActive: boolean; props: Record<string, any> | null; notifications: Notification[]; }`
-    Represents the state of a single dynamic component.
--   `ComponentsState`: `{ components: Record<string, DynamicComponentState>; }`
-    The overall state managed by `dynamicComponentReducer`.
+### Removing a Dynamic Component
 
-## Example Application
+To remove a dynamic component from the DOM, simply call the `deactivate()` method provided by the `useDynamicComponent` hook for that specific `componentId`.
 
-The `example/` directory contains a simple React application demonstrating how to use `react-dynamic-portal` to manage a modal component.
+```jsx
+// In any component that uses the hook
+import { useDynamicComponent } from 'react-dynamic-portal';
 
-To run the example:
+function MyComponent() {
+  const { deactivate } = useDynamicComponent('myModal');
 
-1.  Navigate to the `example` directory:
-    ```bash
-    cd example
+  const handleCloseClick = () => {
+    deactivate(); // This will remove the 'myModal' component from the DOM
+  };
+
+  return (
+    <button onClick={handleCloseClick}>Close Modal</button>
+  );
+}
+```
+
+## Error Handling
+
+-   **Missing `componentId`**: If you try to activate, deactivate, or interact with a `componentId` that has not been registered with the `DynamicComponentProvider`, a `console.warn` message will be logged, indicating that the component ID was not found. Ensure all `componentId`s used with `useDynamicComponent` are correctly defined in the `DynamicComponentProvider`'s `components` array.
+
     ```
-2.  Install dependencies:
-    ```bash
-    npm install
-    # or
-    yarn install
+    [dynamicComponentSlice] activateComponent: Component ID "nonExistentModal" not found.
     ```
-3.  Start the development server:
-    ```bash
-    npm start
-    # or
-    yarn start
-    ```
-    This will open the example application in your browser, typically at `http://localhost:3000`.
 
-## Development
+-   **Duplicate `componentId`s**: While the library itself won't throw an error for duplicate `componentId`s in the `components` array passed to `DynamicComponentProvider`, it will lead to unpredictable behavior as Redux state updates will only affect the last registered component with that ID. Always ensure `componentId`s are unique.
 
-This project uses Rollup for bundling.
+## Best Practices
 
--   **`package.json`**: Defines project metadata, scripts, and dependencies.
-    -   `"main": "dist/index.js"`: CommonJS entry point.
-    -   `"module": "dist/index.mjs"`: ES Module entry point.
-    -   `"types": "dist/index.d.ts"`: TypeScript declaration file entry point.
-    -   `"scripts.build"`: Runs Rollup to build the library.
-    -   `"scripts.dev"`: Runs Rollup in watch mode for development.
-    -   `"peerDependencies"`: Specifies `react` and `react-dom` as peer dependencies, meaning they should be installed by the consuming application.
-    -   `"dependencies"`: Includes `@reduxjs/toolkit`, `react-redux`, Rollup plugins, and `tslib`.
-    -   `"devDependencies"`: Includes `@types/react` and `@types/react-dom` for TypeScript support.
-
--   **`rollup.config.cjs`**: Rollup configuration file.
-    -   Uses `rollup-plugin-peer-deps-external` to automatically externalize peer dependencies.
-    -   Uses `@rollup/plugin-node-resolve` to resolve third-party modules in `node_modules`.
-    -   Uses `@rollup/plugin-commonjs` to convert CommonJS modules to ES6, allowing them to be included in the bundle.
-    -   Uses `@rollup/plugin-typescript` to compile TypeScript files.
-    -   Generates two main bundles: CommonJS (`dist/index.js`) and ES Module (`dist/index.mjs`).
-    -   Generates TypeScript declaration files (`dist/index.d.ts`) using `rollup-plugin-dts`.
-
--   **`tsconfig.json`**: TypeScript configuration file.
-    -   `"target": "es5"`: Compiles to ES5 for broader compatibility.
-    -   `"lib"`: Includes necessary DOM and ESNext libraries.
-    -   `"jsx": "react-jsx"`: Configures JSX compilation for React 17+ transform.
-    -   `"declaration": true`: Enables generation of `.d.ts` files.
-    -   `"declarationDir": "dist"`: Specifies the output directory for `.d.ts` files.
-    -   `"outDir": "dist"`: Specifies the output directory for compiled JavaScript files.
-    -   `"strict": true`: Enables all strict type-checking options.
-
-### Core Logic Files
-
--   **`src/index.ts`**: The main entry point of the library. It exports the `DynamicComponentProvider`, `useDynamicComponent` hook, `dynamicComponentReducer`, and relevant TypeScript types.
--   **`src/components/DynamicComponentProvider.tsx`**:
-    -   This is the core React component that acts as the provider.
-    -   It takes an array of `components` (React elements with `componentId`) as props.
-    -   It dispatches `initializeComponents` action to the Redux store on mount to register the dynamic components.
-    -   It uses `useSelector` to get the state of each dynamic component from the Redux store.
-    -   It dynamically renders `DynamicComponent` instances only if they are `isActive`.
-    -   It uses `React.cloneElement` to inject `close` and `notify` functions, along with any custom `props` from the Redux state, into the rendered dynamic component.
-    -   Includes `Suspense` for potential lazy loading of dynamic components.
--   **`src/hooks/useDynamicComponent.ts`**:
-    -   A custom React hook that provides an API to interact with a specific dynamic component identified by its `componentId`.
-    -   It uses `useDispatch` to dispatch Redux actions (`activateComponent`, `deactivateComponent`, `notifyComponent`, `removeComponentNotification`).
-    -   It uses `useSelector` with memoized selectors (`selectIsComponentActiveById`, `selectComponentNotificationsById`) to efficiently retrieve the `isActive` status and `notifications` for the given `componentId` from the Redux store.
-    -   The returned functions (`activate`, `deactivate`, `notify`, `removeNotification`) are memoized using `useCallback` to prevent unnecessary re-renders.
--   **`src/slice/dynamicComponentSlice.ts`**:
-    -   This file defines the Redux Toolkit slice for managing the state of dynamic components.
-    -   **State Structure**:
-        ```typescript
-        interface ComponentsState {
-          components: Record<string, DynamicComponentState>;
-        }
-
-        interface DynamicComponentState {
-          id: string;
-          isActive: boolean;
-          props: Record<string, any> | null;
-          notifications: Notification[];
-        }
-
-        interface Notification {
-          id: string | number;
-          payload: any;
-        }
-        ```
-    -   **Reducers**:
-        -   `initializeComponents(state, action: PayloadAction<string[]>)`: Initializes the state for a list of component IDs, setting them to inactive with no props or notifications.
-        -   `activateComponent(state, action: PayloadAction<{ componentId: string; props?: Record<string, any> | null }>)`: Sets `isActive` to `true` and stores `props` for the specified component.
-        -   `deactivateComponent(state, action: PayloadAction<{ componentId: string }>)`: Sets `isActive` to `false` and clears `props` for the specified component.
-        -   `notifyComponent(state, action: PayloadAction<{ componentId: string; notificationId: string | number; payload: any }>)`: Adds or updates a notification for the specified component.
-        -   `removeComponentNotification(state, action: PayloadAction<{ componentId: string; notificationId: string | number }>)`: Removes a specific notification from the component's state.
-    -   **Selectors**:
-        -   `selectComponentStateById`: Selects the entire state object for a given component ID.
-        -   `selectIsComponentActiveById`: Selects only the `isActive` status of a component.
-        -   `selectComponentNotificationsById`: Selects the `notifications` array of a component.
-        -   All selectors are created using `createSelector` for memoization, ensuring efficient re-computation only when relevant parts of the state change.
+-   **Unique `componentId`s**: Always use unique and descriptive `componentId`s for each dynamic component to avoid conflicts and ensure predictable behavior.
+-   **Memoize `components` Array**: When passing the `components` array to `DynamicComponentProvider`, use `React.useMemo` to prevent unnecessary re-renders of the provider and its children. This is crucial for performance.
+-   **Keep Dynamic Components Simple**: Design your dynamic components (e.g., `Modal`, `Sidebar`) to be as stateless as possible. Their state should primarily come from the `props` injected by `activate()` or from the Redux store if they need to interact with global application state.
+-   **Clear Notifications**: If your dynamic components use the notification system, consider implementing logic to `removeNotification` after they have been processed to keep the state clean.
+-   **Error Boundaries**: For critical dynamic components, consider wrapping them in React Error Boundaries to gracefully handle rendering errors within the dynamic component itself, preventing the entire application from crashing.
+-   **Accessibility**: Ensure your dynamic components (especially modals and pop-ups) follow accessibility best practices (e.g., proper ARIA roles, keyboard navigation, focus management).
+-   **Performance**: For very complex dynamic components or a large number of them, consider using `React.lazy` and `Suspense` for code splitting to reduce initial bundle size and improve loading times.
 
 ## Contributing
 
