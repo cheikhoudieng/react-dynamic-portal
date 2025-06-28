@@ -8,7 +8,10 @@ import {
   selectIsComponentActiveById,
   selectComponentNotificationsById,
 } from '../slice/dynamicComponentSlice';
-import type { ComponentsState, Notification } from '../slice/dynamicComponentSlice';
+import type {
+  ComponentsState,
+  Notification,
+} from '../slice/dynamicComponentSlice';
 
 interface RootState {
   dynamicComponent: ComponentsState;
