@@ -1,6 +1,9 @@
 # React Dynamic Portal
 
 [![GitHub](https://img.shields.io/badge/GitHub-react--dynamic--portal-blue?style=flat&logo=github)](https://github.com/cheikhoudieng/react-dynamic-portal)
+[![npm version](https://img.shields.io/npm/v/react-dynamic-portal.svg)](https://www.npmjs.com/package/react-dynamic-portal)
+[![npm downloads](https://img.shields.io/npm/dm/react-dynamic-portal.svg)](https://www.npmjs.com/package/react-dynamic-portal)
+[![License](https://img.shields.io/npm/l/react-dynamic-portal.svg)](https://github.com/cheikhoudieng/react-dynamic-portal/blob/main/LICENSE)
 
 A React library for dynamic component rendering using Redux Toolkit. This library provides a robust and scalable solution for managing and rendering React components dynamically, making it ideal for scenarios like modals, notifications, pop-ups, or any UI element that needs to be injected into the DOM at runtime based on application state.
 
@@ -17,6 +20,7 @@ A React library for dynamic component rendering using Redux Toolkit. This librar
   - [Managing Multiple Dynamic Components](#managing-multiple-dynamic-components)
   - [Customizing Component Styles](#customizing-component-styles)
   - [Removing a Dynamic Component](#removing-a-dynamic-component)
+  - [Lazy Loading Dynamic Components with React.lazy](#lazy-loading-dynamic-components-with-reactlazy)
 - [Error Handling](#error-handling)
 - [Best Practices](#best-practices)
 - [API Reference](#api-reference)
@@ -87,11 +91,15 @@ You need to pass an array of `components` to the provider. Each object in the ar
 ```jsx
 // src/App.js (Example from the `example` directory)
 import React, { useMemo } from 'react';
-import { DynamicComponentProvider, useDynamicComponent } from 'react-dynamic-portal';
+import {
+  DynamicComponentProvider,
+  useDynamicComponent,
+} from 'react-dynamic-portal';
 import Modal from './components/Modal'; // Your dynamic component
 
 function App() {
-  const { activate, deactivate, isActive, notifications } = useDynamicComponent('myModal');
+  const { activate, deactivate, isActive, notifications } =
+    useDynamicComponent('myModal');
 
   const dynamicComponents = useMemo(
     () => [
@@ -140,7 +148,8 @@ The `useDynamicComponent` hook allows you to interact with a specific dynamic co
 import { useDynamicComponent } from 'react-dynamic-portal';
 
 function MyComponent() {
-  const { activate, deactivate, isActive, notifications } = useDynamicComponent('myModal');
+  const { activate, deactivate, isActive, notifications } =
+    useDynamicComponent('myModal');
 
   // ... use activate, deactivate, isActive, notifications
 }
@@ -184,8 +193,8 @@ const Modal = ({ title, message, close, notify, fromApp }) => {
 export default Modal;
 ```
 
--   `close()`: A function to deactivate (close) the current dynamic component.
--   `notify(notificationId: string | number, payload: any)`: A function to send a notification to the dynamic component's state.
+- `close()`: A function to deactivate (close) the current dynamic component.
+- `notify(notificationId: string | number, payload: any)`: A function to send a notification to the dynamic component's state.
 
 ### Notifications System
 
@@ -193,26 +202,27 @@ The `useDynamicComponent` hook also exposes a `notifications` array, which conta
 
 ```jsx
 // src/App.js (Example from the `example` directory)
+import React, { useEffect } from 'react';
 import { useDynamicComponent } from 'react-dynamic-portal';
 
 function App() {
-  const { notifications } = useDynamicComponent('myModal');
+  const { notifications, removeNotification } = useDynamicComponent('myModal');
 
-  // notifications will be an array of { id: string | number, payload: any }
-  console.log(notifications);
+  useEffect(() => {
+    // Process notifications received from the dynamic component
+    notifications.forEach(notification => {
+      if (notification.id === 'modalAction') {
+        console.log('Modal action received:', notification.payload);
+        // Perform actions based on the notification
+        // For example, show a global toast, log analytics, etc.
 
-  // You can then process these notifications in your component
-  // For example, to react to a 'modalAction' notification from the Modal component:
-  // useEffect(() => {
-  //   const modalActionNotification = notifications.find(n => n.id === 'modalAction');
-  //   if (modalActionNotification) {
-  //     console.log('Modal action:', modalActionNotification.payload);
-  //     // Optionally remove the notification after processing
-  //     // removeNotification('modalAction');
-  //   }
-  // }, [notifications]);
+        // Important: Remove the notification after processing to avoid re-processing
+        removeNotification(notification.id);
+      }
+    });
+  }, [notifications, removeNotification]);
 
-  // ...
+  // ... rest of your component
 }
 ```
 
@@ -231,7 +241,7 @@ import Toast from './components/Toast';     // Yet another dynamic component
 function App() {
   const { activate: activateModal, deactivate: deactivateModal, isActive: isModalActive } = useDynamicComponent('myModal');
   const { activate: activateSidebar, deactivate: deactivateSidebar, isActive: isSidebarActive } = useDynamicComponent('mySidebar');
-  const { activate: activateToast, deactivate: deactivateToast, isActive: isToastActive } } = useDynamicComponent('myToast');
+  const { activate: activateToast, deactivate: deactivateToast, isActive: isToastActive } = useDynamicComponent('myToast');
 
   const dynamicComponents = useMemo(
     () => [
@@ -329,31 +339,89 @@ function MyComponent() {
     deactivate(); // This will remove the 'myModal' component from the DOM
   };
 
+  return <button onClick={handleCloseClick}>Close Modal</button>;
+}
+```
+
+### Lazy Loading Dynamic Components with React.lazy
+
+For better performance, especially with larger dynamic components, you can use `React.lazy` to code-split and load them only when needed. The `DynamicComponentProvider` is designed to work seamlessly with `Suspense`.
+
+First, define your lazy-loaded component:
+
+```jsx
+// src/components/LazyLoadedModal.js
+import React from 'react';
+
+const LazyLoadedModal = ({ title, message, close }) => {
   return (
-    <button onClick={handleCloseClick}>Close Modal</button>
+    <div style={{ /* your modal styles */ }}>
+      <h2>{title}</h2>
+      <p>{message}</p>
+      <button onClick={close}>Close Lazy Modal</button>
+    </div>
+  );
+};
+
+export default LazyLoadedModal;
+```
+
+Then, use `React.lazy` and include it in your `DynamicComponentProvider`:
+
+```jsx
+// In your main App.js or a parent component
+import React, { useMemo, lazy, Suspense } from 'react';
+import { DynamicComponentProvider, useDynamicComponent } from 'react-dynamic-portal';
+
+// Lazily load your component
+const LazyModal = lazy(() => import('./components/LazyLoadedModal'));
+
+function App() {
+  const { activate, deactivate, isActive } = useDynamicComponent('lazyModal');
+
+  const dynamicComponents = useMemo(
+    () => [
+      {
+        componentId: 'lazyModal',
+        component: <LazyModal title='Lazy Modal' message='Loaded on demand!' />,
+      },
+    ],
+    []
+  );
+
+  return (
+    <DynamicComponentProvider components={dynamicComponents} fallback={<div>Loading dynamic component...</div>}>
+      {/* Your application content */}
+      <button onClick={() => activate()} disabled={isActive}>
+        Show Lazy Modal
+      </button>
+      <button onClick={deactivate} disabled={!isActive}>
+        Hide Lazy Modal
+      </button>
+    </DynamicComponentProvider>
   );
 }
 ```
 
 ## Error Handling
 
--   **Missing `componentId`**: If you try to activate, deactivate, or interact with a `componentId` that has not been registered with the `DynamicComponentProvider`, a `console.warn` message will be logged, indicating that the component ID was not found. Ensure all `componentId`s used with `useDynamicComponent` are correctly defined in the `DynamicComponentProvider`'s `components` array.
+- **Missing `componentId`**: If you try to activate, deactivate, or interact with a `componentId` that has not been registered with the `DynamicComponentProvider`, a `console.warn` message will be logged, indicating that the component ID was not found. Ensure all `componentId`s used with `useDynamicComponent` are correctly defined in the `DynamicComponentProvider`'s `components` array.
 
-    ```
-    [dynamicComponentSlice] activateComponent: Component ID "nonExistentModal" not found.
-    ```
+  ```
+  [dynamicComponentSlice] activateComponent: Component ID "nonExistentModal" not found.
+  ```
 
--   **Duplicate `componentId`s**: While the library itself won't throw an error for duplicate `componentId`s in the `components` array passed to `DynamicComponentProvider`, it will lead to unpredictable behavior as Redux state updates will only affect the last registered component with that ID. Always ensure `componentId`s are unique.
+- **Duplicate `componentId`s**: While the library itself won't throw an error for duplicate `componentId`s in the `components` array passed to `DynamicComponentProvider`, it will lead to unpredictable behavior as Redux state updates will only affect the last registered component with that ID. Always ensure `componentId`s are unique.
 
 ## Best Practices
 
--   **Unique `componentId`s**: Always use unique and descriptive `componentId`s for each dynamic component to avoid conflicts and ensure predictable behavior.
--   **Memoize `components` Array**: When passing the `components` array to `DynamicComponentProvider`, use `React.useMemo` to prevent unnecessary re-renders of the provider and its children. This is crucial for performance.
--   **Keep Dynamic Components Simple**: Design your dynamic components (e.g., `Modal`, `Sidebar`) to be as stateless as possible. Their state should primarily come from the `props` injected by `activate()` or from the Redux store if they need to interact with global application state.
--   **Clear Notifications**: If your dynamic components use the notification system, consider implementing logic to `removeNotification` after they have been processed to keep the state clean.
--   **Error Boundaries**: For critical dynamic components, consider wrapping them in React Error Boundaries to gracefully handle rendering errors within the dynamic component itself, preventing the entire application from crashing.
--   **Accessibility**: Ensure your dynamic components (especially modals and pop-ups) follow accessibility best practices (e.g., proper ARIA roles, keyboard navigation, focus management).
--   **Performance**: For very complex dynamic components or a large number of them, consider using `React.lazy` and `Suspense` for code splitting to reduce initial bundle size and improve loading times.
+- **Unique `componentId`s**: Always use unique and descriptive `componentId`s for each dynamic component to avoid conflicts and ensure predictable behavior.
+- **Memoize `components` Array**: When passing the `components` array to `DynamicComponentProvider`, use `React.useMemo` to prevent unnecessary re-renders of the provider and its children. This is crucial for performance.
+- **Keep Dynamic Components Simple**: Design your dynamic components (e.g., `Modal`, `Sidebar`) to be as stateless as possible. Their state should primarily come from the `props` injected by `activate()` or from the Redux store if they need to interact with global application state.
+- **Clear Notifications**: If your dynamic components use the notification system, consider implementing logic to `removeNotification` after they have been processed to keep the state clean.
+- **Error Boundaries**: For critical dynamic components, consider wrapping them in React Error Boundaries to gracefully handle rendering errors within the dynamic component itself, preventing the entire application from crashing.
+- **Accessibility**: Ensure your dynamic components (especially modals and pop-ups) follow accessibility best practices (e.g., proper ARIA roles, keyboard navigation, focus management).
+- **Performance**: For very complex dynamic components or a large number of them, consider using `React.lazy` and `Suspense` for code splitting to reduce initial bundle size and improve loading times.
 
 ## Contributing
 
